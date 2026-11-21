@@ -1,5 +1,9 @@
 #!/bin/bash
 set -e
+export PYTHONDONTWRITEBYTECODE=1
+_PYCACHE_TMP="$(mktemp -d)"
+export PYTHONPYCACHEPREFIX="$_PYCACHE_TMP"
+trap 'rm -rf "$_PYCACHE_TMP"' EXIT
 
 echo "=== Harness Initialization ==="
 

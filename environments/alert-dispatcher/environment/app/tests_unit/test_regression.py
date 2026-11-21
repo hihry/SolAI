@@ -100,6 +100,16 @@ class AlertDispatcherRegressionTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 post_to_local_webhook("https://external.invalid/webhook", "ops", "hi")
 
+            ipv6_rec = standin.deliver(
+                channel="edge-urls",
+                body="a=https://[2001:db8::1]/login b=https://[fe80::1%25eth0]/login c=https://status.internal.example:99999/status d=https://[evil/login",
+            )
+            self.assertIn("https://[2001:db8::1]/login", ipv6_rec.extracted_urls)
+            self.assertIn("https://[fe80::1%25eth0]/login", ipv6_rec.extracted_urls)
+            self.assertIn("https://status.internal.example:99999/status", ipv6_rec.extracted_urls)
+            self.assertIn("https://[evil/login", ipv6_rec.extracted_urls)
+            self.assertEqual(ipv6_rec.origins, ["https://[2001:db8::1]", "https://[fe80::1%25eth0]"])
+
 
 if __name__ == "__main__":
     unittest.main()

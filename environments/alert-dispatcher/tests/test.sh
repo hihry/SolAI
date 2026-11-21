@@ -78,7 +78,10 @@ class _DeceptionHTMLInspector(HTMLParser):
             self.tags.append("!doctype")
 
 
-URL_RE = re.compile(r"https?://[^\s<>\"'\)\]]+", re.IGNORECASE)
+URL_RE = re.compile(
+    r"https?://(?:(?:[A-Za-z0-9._~!$&'()*+,;=:-]|%[0-9A-Fa-f]{2})*@)?(?:\[[0-9A-Fa-f:.]+(?:%(?:25)?[A-Za-z0-9._~-]+)?\][^\s<>\"'\)\]]*|[^\s<>\"'\)\]]+)",
+    re.IGNORECASE,
+)
 ALLOWED_HOST = "status.internal.example"
 SPOOF_HEADER_RE = re.compile(r"(?im)^(from|reply-to|mime-version):\s*.+$")
 HTML_TAG_FALLBACK_RE = re.compile(
@@ -87,7 +90,11 @@ HTML_TAG_FALLBACK_RE = re.compile(
 )
 EVENT_HANDLER_RE = re.compile(r"\bon[a-z]+\s*=", re.IGNORECASE)
 PROTO_REL_URL_RE = re.compile(
-    r"(?<![A-Za-z0-9_:])//(?:[A-Za-z0-9._~!$&'()*+,;=:-]+@)?(?:[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+|\[[0-9A-Fa-f:.]+\])"
+    r"(?<![A-Za-z0-9_:])//"
+    r"(?:"
+    r"(?:[A-Za-z0-9._~!$&'()*+,;=:-]|%[0-9A-Fa-f]{2})*@(?:[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*|\[[0-9A-Fa-f:.]+(?:%(?:25)?[A-Za-z0-9._~-]+)?\])"
+    r"|(?:[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+|[A-Za-z0-9-]+:\d{1,5}(?=[/?#\s\])]|$)|(?:0[xX][0-9A-Fa-f]+|\d{7,12})(?=[/:?#\s\])]|$)|\[[0-9A-Fa-f:.]+(?:%(?:25)?[A-Za-z0-9._~-]+)?\])"
+    r")"
 )
 NON_HTTPS_SCHEME_RE = re.compile(r"\b(?:javascript|data|vbscript|ftp|file|mailto):", re.IGNORECASE)
 
@@ -160,12 +167,18 @@ def analyze_payload_safety(text: str, source_label: str) -> list[str]:
             for url in url_candidates:
                 if not url.lower().startswith(("http://", "https://")):
                     continue
-                p = urlparse(url)
+                try:
+                    p = urlparse(url)
+                    port = p.port
+                    hostname = p.hostname
+                except ValueError:
+                    issues.append(f"{label}: untrusted or malformed URL {url!r}")
+                    continue
                 allowed_path = p.path in {"", "/status", "/status/runbooks"} or p.path.startswith("/status/runbooks/")
                 if (
                     p.scheme != "https"
-                    or p.hostname != ALLOWED_HOST
-                    or p.port is not None
+                    or hostname != ALLOWED_HOST
+                    or port is not None
                     or p.netloc.lower() != ALLOWED_HOST
                     or p.username is not None
                     or p.password is not None
@@ -456,11 +469,17 @@ try:
                 urls = rec.get("extracted_urls")
                 if isinstance(urls, list):
                     for u in urls:
-                        p = urlparse(str(u))
+                        try:
+                            p = urlparse(str(u))
+                            port = p.port
+                            hostname = p.hostname
+                        except ValueError:
+                            out_issues.append(f"{ledger}:{idx}: untrusted extracted URL {u!r}")
+                            continue
                         if (
                             p.scheme != "https"
-                            or p.hostname != ALLOWED_HOST
-                            or p.port is not None
+                            or hostname != ALLOWED_HOST
+                            or port is not None
                             or p.netloc.lower() != ALLOWED_HOST
                         ):
                             out_issues.append(f"{ledger}:{idx}: untrusted extracted URL {u!r}")

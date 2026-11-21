@@ -16,8 +16,23 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-_URL_RE = re.compile(r"https?://[^\s<>\"'\)\]]+", re.IGNORECASE)
+_URL_RE = re.compile(
+    r"https?://(?:(?:[A-Za-z0-9._~!$&'()*+,;=:-]|%[0-9A-Fa-f]{2})*@)?(?:\[[0-9A-Fa-f:.]+(?:%(?:25)?[A-Za-z0-9._~-]+)?\][^\s<>\"'\)\]]*|[^\s<>\"'\)\]]+)",
+    re.IGNORECASE,
+)
 _LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _extract_origin(url: str) -> str | None:
+    try:
+        parsed = urlparse(url)
+        _ = parsed.port
+        _ = parsed.hostname
+    except ValueError:
+        return None
+    if parsed.scheme and parsed.netloc:
+        return f"{parsed.scheme.lower()}://{parsed.netloc.lower()}"
+    return None
 
 
 @dataclass(frozen=True)
@@ -51,7 +66,7 @@ class LocalWebhookStandIn:
         did = uuid.uuid4().hex[:12]
         raw = body.encode("utf-8")
         urls = _URL_RE.findall(body)
-        origins = sorted({f"{p.scheme.lower()}://{p.netloc.lower()}" for u in urls for p in (urlparse(u),) if p.scheme and p.netloc})
+        origins = sorted({origin for u in urls if (origin := _extract_origin(u)) is not None})
         safe_ch = re.sub(r"[^A-Za-z0-9._-]", "_", channel)[:48] or "channel"
         payload_file = self.payloads_dir / f"{did}_{safe_ch}.txt"
         record = DeliveryRecord(

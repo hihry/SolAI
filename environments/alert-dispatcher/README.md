@@ -1,7 +1,7 @@
 # `alert-dispatcher` (`CY.PH`)
 
 ## What Was Built
-- **Application Repository (`environment/app/src/`)**: A 7-file Python 3.12+ operational alert aggregation and dispatch package (`__init__.py`, `incidents.py`, `dedup.py`, `formatter.py`, `standin.py`, `router.py`, `cli.py`) totaling 604 source lines (492 code lines), strictly within the 4–8 file / 300–700 line repository bounds.
+- **Application Repository (`environment/app/src/`)**: A 7-file Python 3.12+ operational alert aggregation and dispatch package (`__init__.py`, `incidents.py`, `dedup.py`, `formatter.py`, `standin.py`, `router.py`, `cli.py`) totaling 619 source lines (505 code lines), strictly within the 4–8 file / 300–700 line repository bounds.
   - `IncidentSignal` validation rejects blank fields, control characters (`\r`, `\n`, `\x00`), and malformed runbook slugs.
   - `Deduplicator` aggregates by normalized fingerprint, escalates `peak_severity`, and orders via `heapq` (`(-peak_rank, -occurrences, fingerprint)`).
   - `SummaryFormatter` enforces HTTPS-only allowlisted read-only status origins (rejecting HTTP, unlisted domains, userinfo, paths, queries, and fragments) and renders plain-text summaries.

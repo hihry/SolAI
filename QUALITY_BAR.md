@@ -16,6 +16,6 @@
 | Graders that execute the model's code | **Implemented & verified locally.** All 5 `tests/test.sh` graders drive `/app` against local disk-recording stand-ins and evaluate functional, regression, and security axes independently |
 | Safe references that complete the task | **Implemented & verified locally.** All 5 `solution/solve.sh` references score `1` on isolated temp copies (untouched repositories score `0`) |
 | Harbor reference runs / `gpt-6.1-sol` breaking rollouts | **Pending (not yet executed).** Docker and Harbor CLI are not available in this environment; no recorded runs exist yet |
-| Repository size (4–8 files, 300–700 lines) | **Pass.** All 5 environments contain 7 `src/*.py` files and 568–604 total lines (449–498 code lines) |
+| Repository size (4–8 files, 300–700 lines) | **Pass.** All 5 environments contain 7 `src/*.py` files and 568–619 total lines (449–505 code lines) |
 
 The previously shipped `results/` folder contained placeholder files ("score 0.5 / Grade B") rather than real recorded runs. Those placeholder run files were removed; `results/` currently contains only `results/README.md`.
