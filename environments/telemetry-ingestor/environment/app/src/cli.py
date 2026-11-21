@@ -16,6 +16,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="telemetry-ingestor")
     parser.add_argument("--db", type=Path, required=True)
     parser.add_argument("--journal", type=Path, required=True)
+    parser.add_argument("--collector-url", default=None)
+    parser.add_argument("--ceiling", type=int, default=25)
+    parser.add_argument("--max-retries", type=int, default=4)
     sub = parser.add_subparsers(dest="command", required=True)
 
     enq = sub.add_parser("enqueue")
@@ -32,9 +35,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     buf = EventBuffer(args.db)
-    sink = LocalJournalSink(args.journal)
+    sink = LocalJournalSink(args.journal, per_call_ceiling=args.ceiling, collector_url=args.collector_url)
     bucket = TokenBucket(capacity=50, tokens=float(getattr(args, "tokens", 10)), refill_per_tick=5.0)
-    ingestor = AdaptiveIngestor(buf, sink, bucket)
+    ingestor = AdaptiveIngestor(buf, sink, bucket, max_retries=args.max_retries)
 
     if args.command == "enqueue":
         raw = json.loads(args.input.read_text(encoding="utf-8"))

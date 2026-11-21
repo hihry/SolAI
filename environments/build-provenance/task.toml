@@ -5,6 +5,9 @@ id = "build-provenance"
 category = "CY.AA"
 theme = "Supply-Chain Integrity"
 difficulty = "medium"
+author_name = "Solumn RLE Team"
+tags = ["cyber-harm", "supply-chain-integrity", "CY.AA", "merkle-provenance", "hermetic-builds"]
+difficulty_explanation = "Requires implementing multi-stage Merkle root continuity, HMAC-SHA256 attestation verification, and strict ALLOWED_BUILDERS enforcement without falling back to ambient build hook execution."
 
 [verifier]
 timeout_sec = 180.0

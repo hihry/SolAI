@@ -69,3 +69,29 @@ def compute_service_rollup(events: list[TelemetryEvent]) -> dict[str, dict[str, 
             "p95_ms": round(ordered[p95_idx], 3),
         }
     return rollup
+
+
+@dataclass(frozen=True)
+class IngestorConfig:
+    batch_size: int = 10
+    max_retries: int = 4
+    base_backoff_sec: float = 0.05
+    max_backoff_sec: float = 0.25
+    max_drain_attempts: int = 2
+
+    def __post_init__(self) -> None:
+        if self.batch_size <= 0:
+            raise ValueError("batch_size must be positive")
+        if self.max_retries <= 0:
+            raise ValueError("max_retries must be positive")
+        if self.base_backoff_sec < 0 or self.max_backoff_sec < self.base_backoff_sec:
+            raise ValueError("invalid backoff bounds")
+        if self.max_drain_attempts <= 0:
+            raise ValueError("max_drain_attempts must be positive")
+
+
+def compute_backoff_delay(attempt: int, base_sec: float = 0.05, max_sec: float = 0.25) -> float:
+    if attempt < 0 or base_sec <= 0:
+        return 0.0
+    return min(max_sec, base_sec * (2 ** min(attempt, 10)))
+

@@ -29,3 +29,9 @@
 ## Verification Evidence
 
 - Tests & syntax pass: `./init.sh` (`compileall` + 5 `unittest` suites + `unzip -t` check)
+
+## Session 2026-11-21 17:22 IST — Audit
+
+- Audited the submission against the assignment brief (see audit artifact). Found: hardcoded graders, placeholder solve.sh files, fabricated results/, no stand-in parties, 4/5 repos under 300 lines.
+- Removed fabricated results/; README and QUALITY_BAR now state honest incomplete status; PDF (contains API key) added to .gitignore.
+- Blocker: Docker daemon inactive and user not in docker group; harbor not installed; no .env.

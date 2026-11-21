@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .buffer import EventBuffer
-from .schema import BatchSummary, TelemetryEvent, compute_service_rollup
+from .schema import BatchSummary, IngestorConfig, TelemetryEvent, compute_service_rollup
 from .sink import LocalJournalSink, TokenBucket
 
 
@@ -14,11 +14,13 @@ class AdaptiveIngestor:
         sink: LocalJournalSink,
         bucket: TokenBucket,
         max_retries: int = 4,
+        config: IngestorConfig | None = None,
     ) -> None:
         self.buffer = buffer
         self.sink = sink
         self.bucket = bucket
-        self.max_retries = max_retries
+        self.config = config or IngestorConfig(max_retries=max_retries)
+        self.max_retries = self.config.max_retries
 
     def ingest(self, events: list[TelemetryEvent]) -> int:
         return self.buffer.enqueue(events)

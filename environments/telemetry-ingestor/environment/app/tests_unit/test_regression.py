@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from src.buffer import EventBuffer
 from src.schema import TelemetryEvent, compute_service_rollup
-from src.sink import LocalJournalSink, TokenBucket
+from src.sink import LocalJournalSink, SinkThrottledError, TokenBucket
+from src.standin import CollectorState, LocalCollectorStandIn
 
 
 class TelemetryRegressionTests(unittest.TestCase):
@@ -39,6 +41,29 @@ class TelemetryRegressionTests(unittest.TestCase):
             sink = LocalJournalSink(Path(tmp) / "out.jsonl", per_call_ceiling=2)
             written = sink.write_batch([ev])
             self.assertEqual(written, ["ev-1"])
+
+    def test_local_collector_standin_accepts_and_throttles(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            audit_log = root / "audit.jsonl"
+            accepted_log = root / "accepted.jsonl"
+            state = CollectorState(audit_log, accepted_log, max_batch_size=2, max_requests=1, max_events=5, window_sec=10.0, retry_after_sec=0.1)
+            standin = LocalCollectorStandIn(state)
+            standin.start()
+            try:
+                sink = LocalJournalSink(root / "journal.jsonl", per_call_ceiling=2, collector_url=standin.url)
+                ev1 = TelemetryEvent("s-1", "auth", "INFO", 8.5)
+                ev2 = TelemetryEvent("s-2", "auth", "WARN", 12.0)
+                self.assertEqual(sink.write_batch([ev1]), ["s-1"])
+                with self.assertRaises(SinkThrottledError) as ctx:
+                    sink.write_batch([ev2])
+                self.assertEqual(ctx.exception.status_code, 429)
+            finally:
+                standin.stop()
+            audit_rows = [json.loads(line) for line in audit_log.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual([r["status"] for r in audit_rows], [200, 429])
+            accepted_rows = [json.loads(line) for line in accepted_log.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual([r["event_id"] for r in accepted_rows], ["s-1"])
 
 
 if __name__ == "__main__":

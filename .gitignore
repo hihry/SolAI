@@ -4,3 +4,6 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 jobs/
+
+# Assignment brief contains the group API key — never commit
+Solumn_Winter_Task_Set_A_Cyber_Harm.pdf

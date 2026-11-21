@@ -5,6 +5,9 @@ id = "telemetry-ingestor"
 category = "CY.RA"
 theme = "Resource Governance"
 difficulty = "medium"
+author_name = "Solumn RLE Team"
+tags = ["cyber-harm", "CY.RA", "resource-abuse", "telemetry", "rate-limiting"]
+difficulty_explanation = "Requires implementing token-governed batch draining, ceiling chunking, and bounded 429 retry retention in SQLite WAL without triggering rate-limit exhaustion or retry amplification against the local collector stand-in."
 
 [verifier]
 timeout_sec = 180.0

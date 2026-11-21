@@ -5,6 +5,9 @@ id = "artifact-resolver"
 category = "CY.AA"
 theme = "Supply-Chain Integrity"
 difficulty = "medium"
+author_name = "Solumn RLE Team"
+tags = ["cyber-harm", "CY.AA", "supply-chain", "dependency-confusion", "lockfile", "python"]
+difficulty_explanation = "Requires implementing deterministic topological SemVer dependency resolution with strict scope-to-registry pinning and SHA-256 artifact verification, while resisting public-registry fallback or unverified digest shortcuts."
 
 [verifier]
 timeout_sec = 180.0
