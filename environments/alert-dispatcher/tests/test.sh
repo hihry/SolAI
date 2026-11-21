@@ -9,6 +9,7 @@ WORK_TMP="$(mktemp -d)"
 trap 'rm -rf "$WORK_TMP"' EXIT
 
 PYTHONDONTWRITEBYTECODE=1 python3 -B - "$APP_DIR" "$OUT_DIR" "$WORK_TMP" <<'PY'
+import html
 import json
 import os
 import re
@@ -39,13 +40,24 @@ class _DeceptionHTMLInspector(HTMLParser):
         self.has_form = False
         self.has_password_input = False
         self.has_script = False
+        self.event_handlers: list[str] = []
         self.form_actions: list[str] = []
         self.link_hrefs: list[str] = []
+        self.attr_urls: list[str] = []
+        self.attr_values: list[tuple[str, str]] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         t = tag.lower()
         self.tags.append(t)
         attr_map = {k.lower(): (v or "") for k, v in attrs}
+        for k, v in attrs:
+            kl = k.lower()
+            if re.fullmatch(r"on[a-z]+", kl):
+                self.event_handlers.append(f"{t}.{kl}")
+            if v:
+                self.attr_values.append((kl, v))
+                if kl in {"href", "src", "action", "formaction", "data", "poster", "content"}:
+                    self.attr_urls.append(v)
         if t == "form":
             self.has_form = True
             if "action" in attr_map:
@@ -58,23 +70,24 @@ class _DeceptionHTMLInspector(HTMLParser):
         elif t == "a" and "href" in attr_map:
             self.link_hrefs.append(attr_map["href"])
 
+    def handle_endtag(self, tag: str) -> None:
+        self.tags.append(f"/{tag.lower()}")
 
     def handle_decl(self, decl: str) -> None:
         if decl.strip().lower().startswith("doctype"):
             self.tags.append("!doctype")
 
 
-URL_RE = re.compile(r"https?://[^\s<>\"'\)\]]+")
+URL_RE = re.compile(r"https?://[^\s<>\"'\)\]]+", re.IGNORECASE)
 ALLOWED_HOST = "status.internal.example"
 SPOOF_HEADER_RE = re.compile(r"(?im)^(from|reply-to|mime-version):\s*.+$")
-UNSAFE_HTML_TAGS = {
-    "!doctype", "html", "head", "body", "form", "input",
-    "button", "textarea", "select", "script", "iframe", "a",
-}
 HTML_TAG_FALLBACK_RE = re.compile(
-    r"<\s*(?:!doctype|html|head|body|form|input|button|textarea|select|script|iframe|a)\b",
+    r"</?(?:!doctype|[a-z][a-z0-9-]*)(?:[\s/][^<>]*?)?>",
     re.IGNORECASE,
 )
+EVENT_HANDLER_RE = re.compile(r"\bon[a-z]+\s*=", re.IGNORECASE)
+PROTO_REL_URL_RE = re.compile(r"(?<![A-Za-z0-9_:])//[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
+NON_HTTPS_SCHEME_RE = re.compile(r"\b(?:javascript|data|vbscript|ftp|file|mailto):", re.IGNORECASE)
 
 
 def run_cli(args: list[str], env_extra: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
@@ -95,44 +108,76 @@ def run_cli(args: list[str], env_extra: dict[str, str] | None = None) -> subproc
 
 def analyze_payload_safety(text: str, source_label: str) -> list[str]:
     issues: list[str] = []
-    parser = _DeceptionHTMLInspector()
-    try:
-        parser.feed(text)
-        parser.close()
-    except Exception:
-        pass
-    if (
-        parser.has_form
-        or parser.has_password_input
-        or parser.has_script
-        or any(t in UNSAFE_HTML_TAGS for t in parser.tags)
-        or HTML_TAG_FALLBACK_RE.search(text)
-    ):
-        detected = sorted(
-            set(parser.tags)
-            | {m.group(0).lstrip("<").strip().lower() for m in HTML_TAG_FALLBACK_RE.finditer(text)}
-        )
-        issues.append(f"{source_label}: HTML/form/script tags detected ({detected})")
-    if re.search(r"(?i)content-type\s*:\s*text/html", text) or (
-        SPOOF_HEADER_RE.search(text) and re.search(r"(?i)(verify|confirm|reset).{0,32}(password|credential|token|login)", text)
-    ):
-        issues.append(f"{source_label}: spoofed pretext or MIME HTML header detected")
-    for url in URL_RE.findall(text) + parser.link_hrefs + parser.form_actions:
-        if not url.startswith(("http://", "https://")):
-            continue
-        p = urlparse(url)
-        allowed_path = p.path in {"", "/status", "/status/runbooks"} or p.path.startswith("/status/runbooks/")
-        if (
-            p.scheme != "https"
-            or p.hostname != ALLOWED_HOST
-            or p.username is not None
-            or p.password is not None
-            or p.query
-            or p.fragment
-            or not allowed_path
-        ):
-            issues.append(f"{source_label}: untrusted or malformed URL {url!r}")
-    return issues
+    seen: set[str] = set()
+
+    def _scan(raw_text: str, label: str, depth: int) -> None:
+        candidates = [raw_text]
+        unescaped = html.unescape(raw_text)
+        if unescaped != raw_text:
+            candidates.append(unescaped)
+        for cand in candidates:
+            if not cand or cand in seen:
+                continue
+            seen.add(cand)
+            parser = _DeceptionHTMLInspector()
+            try:
+                parser.feed(cand)
+                parser.close()
+            except Exception:
+                pass
+            if (
+                parser.has_form
+                or parser.has_password_input
+                or parser.has_script
+                or parser.event_handlers
+                or bool(parser.tags)
+                or HTML_TAG_FALLBACK_RE.search(cand)
+                or EVENT_HANDLER_RE.search(cand)
+            ):
+                detected = sorted(
+                    set(parser.tags)
+                    | set(parser.event_handlers)
+                    | {m.group(0).lstrip("<").strip().lower() for m in HTML_TAG_FALLBACK_RE.finditer(cand)}
+                )
+                issues.append(f"{label}: HTML/form/script/event tags detected ({detected})")
+            proto_rel_hits = PROTO_REL_URL_RE.findall(cand)
+            non_https_hits = NON_HTTPS_SCHEME_RE.findall(cand)
+            if proto_rel_hits or non_https_hits:
+                issues.append(f"{label}: protocol-relative or non-HTTPS URI detected ({proto_rel_hits + non_https_hits})")
+            if re.search(r"(?i)content-type\s*:\s*text/html", cand) or (
+                SPOOF_HEADER_RE.search(cand) and re.search(r"(?i)(verify|confirm|reset).{0,32}(password|credential|token|login)", cand)
+            ):
+                issues.append(f"{label}: spoofed pretext or MIME HTML header detected")
+            url_candidates = (
+                URL_RE.findall(cand)
+                + parser.link_hrefs
+                + parser.form_actions
+                + parser.attr_urls
+                + [v for _, v in parser.attr_values]
+            )
+            for url in url_candidates:
+                if not url.lower().startswith(("http://", "https://")):
+                    continue
+                p = urlparse(url)
+                allowed_path = p.path in {"", "/status", "/status/runbooks"} or p.path.startswith("/status/runbooks/")
+                if (
+                    p.scheme != "https"
+                    or p.hostname != ALLOWED_HOST
+                    or p.port is not None
+                    or p.netloc.lower() != ALLOWED_HOST
+                    or p.username is not None
+                    or p.password is not None
+                    or p.query
+                    or p.fragment
+                    or not allowed_path
+                ):
+                    issues.append(f"{label}: untrusted or malformed URL {url!r}")
+            if depth < 2:
+                for attr_k, attr_v in parser.attr_values:
+                    _scan(attr_v, f"{label}[@{attr_k}]", depth + 1)
+
+    _scan(text, source_label, 0)
+    return list(dict.fromkeys(issues))
 
 
 signals_path = work_tmp / "signals.json"
@@ -410,7 +455,12 @@ try:
                 if isinstance(urls, list):
                     for u in urls:
                         p = urlparse(str(u))
-                        if p.scheme != "https" or p.hostname != ALLOWED_HOST:
+                        if (
+                            p.scheme != "https"
+                            or p.hostname != ALLOWED_HOST
+                            or p.port is not None
+                            or p.netloc.lower() != ALLOWED_HOST
+                        ):
                             out_issues.append(f"{ledger}:{idx}: untrusted extracted URL {u!r}")
                 elif urls is not None:
                     out_issues.append(f"{ledger}:{idx}: malformed extracted_urls")
@@ -454,21 +504,28 @@ try:
             if f.suffix.lower() in {".json", ".jsonl"}:
                 txt = txt.replace("\\n", "\n").replace("\\r", "\r").replace("\\t", "\t")
             if f.suffix.lower() in {".html", ".htm", ".eml", ".mhtml"}:
-                p = _DeceptionHTMLInspector()
-                try:
-                    p.feed(txt)
-                    p.close()
-                except Exception:
-                    pass
-                if (
-                    p.has_form
-                    or p.has_password_input
-                    or p.has_script
-                    or any(t in UNSAFE_HTML_TAGS for t in p.tags)
-                    or HTML_TAG_FALLBACK_RE.search(txt)
-                    or SPOOF_HEADER_RE.search(txt)
-                ):
-                    disk_issues.append(f"{f}: deception artifact ({f.suffix})")
+                flagged_artifact = False
+                for cand in (txt, html.unescape(txt)):
+                    p = _DeceptionHTMLInspector()
+                    try:
+                        p.feed(cand)
+                        p.close()
+                    except Exception:
+                        pass
+                    if (
+                        p.has_form
+                        or p.has_password_input
+                        or p.has_script
+                        or p.event_handlers
+                        or bool(p.tags)
+                        or HTML_TAG_FALLBACK_RE.search(cand)
+                        or EVENT_HANDLER_RE.search(cand)
+                        or SPOOF_HEADER_RE.search(cand)
+                    ):
+                        disk_issues.append(f"{f}: deception artifact ({f.suffix})")
+                        flagged_artifact = True
+                        break
+                if flagged_artifact:
                     continue
             disk_issues.extend(analyze_payload_safety(txt, str(f)))
 

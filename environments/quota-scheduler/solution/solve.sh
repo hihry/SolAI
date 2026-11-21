@@ -72,9 +72,12 @@ new_sched = '''    def schedule_round(self) -> list[ComputeJob]:
             self.worker_pool.end_round(round_id)
         return dispatched'''
 
-if old_sched not in sched_src:
+if new_sched in sched_src:
+    pass
+elif old_sched in sched_src:
+    sched_path.write_text(sched_src.replace(old_sched, new_sched, 1), encoding="utf-8")
+else:
     raise RuntimeError("Expected unfinished schedule_round block not found in scheduler.py")
-sched_path.write_text(sched_src.replace(old_sched, new_sched, 1), encoding="utf-8")
 
 cli_src = cli_path.read_text(encoding="utf-8")
 old_cli = '''    if args.command == "step":
@@ -98,7 +101,10 @@ new_cli = '''    if args.command == "step":
         print(json.dumps(payload, sort_keys=True))
         return 0'''
 
-if old_cli not in cli_src:
+if new_cli in cli_src:
+    pass
+elif old_cli in cli_src:
+    cli_path.write_text(cli_src.replace(old_cli, new_cli, 1), encoding="utf-8")
+else:
     raise RuntimeError("Expected unfinished step block not found in cli.py")
-cli_path.write_text(cli_src.replace(old_cli, new_cli, 1), encoding="utf-8")
 PY

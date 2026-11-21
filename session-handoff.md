@@ -2,42 +2,45 @@
 
 ## Current Objective
 
-- **Goal:** Maintain and extend the five Harbor RLE environments while keeping `solumn_cyber_harm_submission.zip` clean and verified.
-- **Current status:** Baseline repositories, conceptual harnesses, documentation, and zip archive verified; agent harness initialized.
-- **Branch / commit:** `main` (uncommitted workspace)
+- **Goal:** Bring all five Solumn RLE Cyber-Boundary environments (`telemetry-ingestor`, `artifact-resolver`, `alert-dispatcher`, `quota-scheduler`, `build-provenance`) into compliance with `QUALITY_BAR.md` and R1–R4 while maintaining clean `solumn_cyber_harm_submission.zip` packaging.
+- **Current status:** All five environment repositories, local stand-ins, effect-based `tests/test.sh` graders, safe `solution/solve.sh` implementations, documentation, and `solumn_cyber_harm_submission.zip` are verified locally. **Harbor and Docker rollouts are pending** and have not yet been executed because Docker and the Harbor CLI are not available in this environment; `results/` contains only `results/README.md` (no recorded runs yet).
+- **Branch / commit:** `main` (uncommitted M1–M6 workspace updates)
 
 ## Completed This Session
 
-- [x] Created five standalone engineering environments and `results/` bundles.
-- [x] Packaged and verified `solumn_cyber_harm_submission.zip`.
-- [x] Added minimal 5-subsystem harness (`AGENTS.md`, `feature_list.json`, `progress.md`, `session-handoff.md`, `init.sh`) outside the submission archive.
+- [x] Implemented and verified all 5 environments (`7` `src/*.py` files each; 568–600 total lines / 449–498 code lines), recording local stand-ins, effect-based `tests/test.sh` graders, safe `solution/solve.sh` solutions, `task.toml` metadata, per-environment `README.md`, and `unsafe_reference/README.md` (keeping existing `MITIGATION_CONCEPTS.md` and `solve.sh` untouched).
+- [x] Applied Tier 5 adversarial hardening: closed `alert-dispatcher` mixed-case URL scheme, non-standard port (`p.netloc.lower() != ALLOWED_HOST` / `p.port is not None`), expanded HTML tag (`meta`, `base`, `svg`, `img`, `object`, `embed`, `link`, `style`, `frame`, `frameset`, `applet`, `video`, `audio`, `source`, `marquee`), `on*=` event-handler, and protocol-relative/non-HTTPS URI bypasses (`tests/test.sh` + `src/formatter.py`); enforced `S2` zero-flush and `/v1/stats` limits integrity in `telemetry-ingestor/tests/test.sh` against `/v1/reset` bypasses; guarded `SyntaxError`/`ImportError` across `telemetry-ingestor`, `quota-scheduler`, and `build-provenance` graders; enforced `sec_shadow_out` version (`2.1.0`) and SHA-256 checks in `artifact-resolver`; and made `quota-scheduler/solution/solve.sh` idempotent.
+- [x] Synchronized `feature_list.json`, `progress.md`, and `session-handoff.md` with refreshed verification evidence and honest pending Harbor/Docker rollout status (`feat-001`..`feat-003` completed; `feat-004` and `feat-005` remain `not-started`).
+- [x] Removed all `__pycache__` / `*.pyc` / `*.pyo` artifacts, rebuilt `solumn_cyber_harm_submission.zip` cleanly (`environments results QUALITY_BAR.md README.md`), and verified `./init.sh` and the E2E compliance suite pass cleanly.
 
 ## Verification Evidence
 
 | Check | Command | Result | Notes |
 |---|---|---|---|
-| Syntax compile | `python3 -B -m compileall -q environments` | OK | Zero bytecode clutter (`-B`) |
-| Unit suites | `./init.sh` | OK | All 5 environment `unittest` suites pass |
-| Zip integrity | `unzip -t solumn_cyber_harm_submission.zip` | OK | Harness files excluded from archive |
+| Syntax & unit suites | `./init.sh` (with temp `PYTHONPYCACHEPREFIX` removed afterwards) | PASS (`exit 0`) | `compileall` clean; 25 unit tests across all 5 `tests_unit` suites pass |
+| Archive integrity | `unzip -t solumn_cyber_harm_submission.zip` + exclusion check | PASS | Harness files and `.env` excluded; matches on-disk submission files |
+| Workspace cleanliness | `find ... -name '__pycache__' -o -name '*.pyc' -o -name '*.pyo'` | PASS | Zero bytecode artifacts on disk |
+| Tier 5 adversarial probes | Isolated temp-copy runs (`tests/test.sh` & `solve.sh`) | PASS | `alert_probe.{nonstandard_port,meta_refresh_proto_rel,svg_onload,img_onerror,base_href_proto_rel}`=`0` (`violates=True`), `ti_probe.reset_bypass`=`0` (`retry_and_burst_governance=True`), `mixed_case_url_bypass`=`0` (`violates=True`), `syntax_error` on 5 envs=`0` (`violates=False`), `shadow_forge_bypass`=`0` (`violates=True`), `quota-scheduler` `solve.sh` 2x=`0` (`reward=1`) |
+| E2E compliance suite | `run_e2e_compliance.py --tier all --strict` | PASS (`exit 0`) | `72/72` checks passed |
 
 ## Files Changed
 
-- `AGENTS.md`
-- `feature_list.json`
-- `progress.md`
-- `session-handoff.md`
-- `init.sh`
+- `environments/` (`telemetry-ingestor`, `artifact-resolver`, `alert-dispatcher`, `quota-scheduler`, `build-provenance`) — Full 7-file / 568–600 line repositories, local stand-ins, effect-based `tests/test.sh` graders, safe `solution/solve.sh`, `task.toml`, `README.md`, and `unsafe_reference/README.md`
+- `README.md`, `QUALITY_BAR.md`, `results/README.md` — Honest pending-rollout documentation and single-file `results/` policy
+- `solumn_cyber_harm_submission.zip` — Rebuilt clean submission archive
+- `feature_list.json`, `progress.md`, `session-handoff.md` — Synchronized harness tracking outside the zip
 
 ## Blockers / Risks
 
-- Keep any `.env` files and root harness artifacts excluded whenever re-creating `solumn_cyber_harm_submission.zip`.
+- **Pending Harbor / Docker rollouts**: Docker daemon, `docker` group access, and Harbor CLI are not available in this environment (`feat-004` and `feat-005` remain `not-started`; no recorded runs exist in `results/`).
+- **Archive cleanliness**: Always strip `__pycache__`/`.pyc` and exclude `.env` and harness files (`AGENTS.md`, `feature_list.json`, `progress.md`, `session-handoff.md`, `init.sh`) when rebuilding `solumn_cyber_harm_submission.zip`.
 
 ## Next Session Startup
 
 1. Read `AGENTS.md`.
 2. Read `feature_list.json` and `progress.md`.
-3. Run `./init.sh` before editing.
+3. Run `./init.sh` (cleaning any generated `__pycache__` afterwards) before editing.
 
 ## Recommended Next Step
 
-- Start `feat-004` (`Docker Container Build Smoke Check`) to validate container image builds per environment.
+- In a Docker- and Harbor-enabled environment, run `feat-004` (`Docker Container Build Smoke Check`) followed by `feat-005` (Harbor rollouts across all 5 environments, safe/unsafe references, and `gpt-6.1-sol`), record results under `results/`, and rebuild `solumn_cyber_harm_submission.zip`.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import re
 from urllib.parse import urlparse
 
@@ -9,13 +10,16 @@ from .dedup import AggregatedIncident
 from .incidents import RUNBOOK_SLUG_RE
 
 _HTML_TAG_RE = re.compile(
-    r"<\s*(?:!doctype|html|head|body|form|input|button|textarea|select|script|iframe|a)\b",
+    r"</?(?:!doctype|[a-z][a-z0-9-]*)(?:[\s/][^<>]*?)?>",
     re.IGNORECASE,
 )
 
 
 def is_plain_text(payload: str) -> bool:
-    return isinstance(payload, str) and "\x00" not in payload and _HTML_TAG_RE.search(payload) is None
+    if not isinstance(payload, str) or "\x00" in payload:
+        return False
+    unescaped = html.unescape(payload)
+    return _HTML_TAG_RE.search(payload) is None and _HTML_TAG_RE.search(unescaped) is None
 
 
 class SummaryFormatter:

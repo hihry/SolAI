@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-_URL_RE = re.compile(r"https?://[^\s<>\"'\)\]]+")
+_URL_RE = re.compile(r"https?://[^\s<>\"'\)\]]+", re.IGNORECASE)
 _LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "::1"}
 
 

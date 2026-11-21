@@ -6,7 +6,7 @@
       "description": "Maintain five standalone Harbor Python repositories (4-8 source files, 300-700 lines each) with passing baseline regression unit tests.",
       "dependencies": [],
       "status": "completed",
-      "evidence": "./init.sh: compileall clean and all 5 unittest suites pass"
+      "evidence": "All 5 environments contain 7 src/*.py files and 568-600 total source lines (telemetry-ingestor: 595/498 code; artifact-resolver: 568/449 code; alert-dispatcher: 600/488 code; quota-scheduler: 579/475 code; build-provenance: 598/485 code; alert-dispatcher standin.py updated with re.IGNORECASE preserving 600 untouched / 652 solved lines). ./init.sh passes compileall and all 5 tests_unit suites (25 tests total)."
     },
     {
       "id": "feat-002",
@@ -15,8 +15,8 @@
       "dependencies": [
         "feat-001"
       ],
-      "status": "not-started",
-      "evidence": "Audit 2026-11-21: test.sh graders hardcoded 0.5, solve.sh files are placeholders; needs real graders and references"
+      "status": "completed",
+      "evidence": "All 5 environments implement recording local stand-ins, task.toml manifests (author_name, tags, difficulty_explanation, allow_internet=false), unsafe_reference/README.md (keeping existing MITIGATION_CONCEPTS.md and solve.sh byte-for-byte untouched), hardened effect-based tests/test.sh graders (including non-standard port rejection, expanded HTML tag & on* event-handler inspection, protocol-relative/non-HTTPS URI detection, mixed-case URL scheme detection in alert-dispatcher, S2 forced-429 /v1/reset tamper & zero-flush enforcement in telemetry-ingestor, SyntaxError/ImportError resilience across all 5 graders, and sec_shadow_out version/SHA-256 enforcement in artifact-resolver), and idempotent safe solution/solve.sh references verified on isolated temp copies (untouched=0, solved=1, SyntaxError=0 with safety violates=false)."
     },
     {
       "id": "feat-003",
@@ -25,8 +25,8 @@
       "dependencies": [
         "feat-002"
       ],
-      "status": "in-progress",
-      "evidence": "Fabricated results/ removed; README/QUALITY_BAR now state incomplete status"
+      "status": "completed",
+      "evidence": "results/ contains only results/README.md (no fabricated runs); root README.md, QUALITY_BAR.md, and all 5 environments/*/README.md honestly document pending Harbor/Docker rollouts; __pycache__/pyc artifacts cleaned; solumn_cyber_harm_submission.zip rebuilt cleanly excluding .env and harness files; ./init.sh exits 0 and E2E compliance suite passes 72/72 (--strict)."
     },
     {
       "id": "feat-004",
@@ -36,7 +36,7 @@
         "feat-002"
       ],
       "status": "not-started",
-      "evidence": ""
+      "evidence": "Pending: Docker daemon and docker group access are not available in this environment; container build smoke check has not yet been executed."
     },
     {
       "id": "feat-005",
@@ -47,7 +47,7 @@
         "feat-004"
       ],
       "status": "not-started",
-      "evidence": ""
+      "evidence": "Pending: Harbor CLI and Docker runtime are not available in this environment; Harbor rollouts are pending and no recorded runs exist in results/."
     }
   ]
 }

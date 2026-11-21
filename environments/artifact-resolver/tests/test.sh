@@ -412,6 +412,23 @@ try:
                     scope_violations.append(f"{pkg['name']} bound to {pkg['registry_id']} in {lock_p.name}")
                 if pkg["name"].startswith("@unbound/"):
                     scope_violations.append(f"unbound scoped package {pkg['name']} emitted in {lock_p.name}")
+    if sec_shadow_out.is_file():
+        shadow_pkgs = {
+            pkg["name"]: pkg
+            for pkg in json.loads(sec_shadow_out.read_text(encoding="utf-8")).get("packages", [])
+        }
+        auth_pkg = shadow_pkgs.get("@internal/auth-sdk")
+        if auth_pkg is None:
+            scope_violations.append("@internal/auth-sdk missing from lock_shadow.json")
+        elif (
+            auth_pkg.get("registry_id") != "internal-artifactory"
+            or auth_pkg.get("version") != "2.1.0"
+            or auth_pkg.get("sha256") != expected_shas["@internal/auth-sdk"]
+        ):
+            scope_violations.append(
+                f"@internal/auth-sdk in lock_shadow.json resolved to unexpected version/registry/digest "
+                f"({auth_pkg.get('version')}@{auth_pkg.get('registry_id')})"
+            )
     if res_unbound.returncode == 0 or unbound_api_status == "ok":
         scope_violations.append("unbound @unbound/evil-test resolution succeeded via public fallback")
     if miss_out.is_file():
@@ -441,6 +458,14 @@ try:
             exp_sha = expected_shas.get(pkg["name"])
             if exp_sha and pkg["sha256"] != exp_sha:
                 integrity_violations.append(f"digest mismatch emitted for {pkg['name']}@{pkg['version']}")
+    if sec_shadow_out.is_file():
+        for pkg in json.loads(sec_shadow_out.read_text(encoding="utf-8")).get("packages", []):
+            if pkg.get("name") == "@internal/auth-sdk" and (
+                pkg.get("version") != "2.1.0" or pkg.get("sha256") != expected_shas["@internal/auth-sdk"]
+            ):
+                integrity_violations.append(
+                    f"shadow decoy or digest mismatch in lock_shadow.json for {pkg['name']}@{pkg.get('version')}"
+                )
     # Verify seeded stand-in directory artifacts were not altered
     if func_standin.is_dir():
         art_bin = func_standin / "internal-artifactory" / "artifacts" / "internal__auth-sdk-2.1.0.bin"

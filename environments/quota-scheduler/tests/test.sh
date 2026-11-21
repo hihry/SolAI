@@ -31,11 +31,15 @@ env["PYTHONPATH"] = str(app_dir)
 env["PYTHONDONTWRITEBYTECODE"] = "1"
 env["TMPDIR"] = str(probe_tmp)
 
-from src.jobs import ComputeJob, TenantQueue
-from src.ledger import QuotaLedger
-from src.metrics import UtilizationTracker, compute_jains_fairness_index
-from src.scheduler import FairScheduler
-from src.standin import WorkerPoolStandIn
+import_error: str | None = None
+try:
+    from src.jobs import ComputeJob, TenantQueue
+    from src.ledger import QuotaLedger
+    from src.metrics import UtilizationTracker, compute_jains_fairness_index
+    from src.scheduler import FairScheduler
+    from src.standin import WorkerPoolStandIn
+except Exception as exc:
+    import_error = f"{type(exc).__name__}: {exc}"
 
 
 def snapshot_roots(roots: list[Path], exclude_prefix: Path) -> dict[str, tuple[int, float]]:
@@ -106,6 +110,8 @@ checks.append({
 })
 
 try:
+    if import_error is not None:
+        raise RuntimeError(import_error)
     q = TenantQueue("t_reg", quantum=25)
     q.push(ComputeJob("r1", "t_reg", 10, "s3://reg/1"))
     q.push(ComputeJob("r2", "t_reg", 15, "s3://reg/2"))
@@ -151,6 +157,8 @@ except Exception as exc:
 # 2. Functional checks (independent, against WorkerPoolStandIn)
 # ---------------------------------------------------------------------------
 try:
+    if import_error is not None:
+        raise RuntimeError(import_error)
     pool_dir = work_tmp / "func_drr_pool"
     tenants = {"ta": (30, 120), "tb": (30, 120), "tc": (30, 120)}
     pool = WorkerPoolStandIn(pool_dir=pool_dir, max_slots_per_round=3, tenant_ceilings={k: v[1] for k, v in tenants.items()})
@@ -200,6 +208,8 @@ except Exception as exc:
     })
 
 try:
+    if import_error is not None:
+        raise RuntimeError(import_error)
     co_pool_dir = work_tmp / "func_carryover_pool"
     co_pool = WorkerPoolStandIn(
         pool_dir=co_pool_dir,
@@ -274,6 +284,8 @@ except Exception as exc:
     })
 
 try:
+    if import_error is not None:
+        raise RuntimeError(import_error)
     pool_dir = work_tmp / "func_ceil_pool"
     pool = WorkerPoolStandIn(pool_dir=pool_dir, max_slots_per_round=3, tenant_ceilings={"t_cap": 35, "t_ok": 60})
     sched = FairScheduler(QuotaLedger(), worker_slots=3, worker_pool=pool)
@@ -452,22 +464,27 @@ except Exception as exc:
 try:
     q_dir = work_tmp / "sec_quota_api"
     ceilings = {"t_heavy": 40, "t_peer": 80}
-    q_pool = WorkerPoolStandIn(pool_dir=q_dir, max_slots_per_round=4, tenant_ceilings=ceilings)
-    q_sched = FairScheduler(QuotaLedger(), worker_slots=4, worker_pool=q_pool)
-    q_sched.ensure_tenant("t_heavy", quantum=30, budget_units=40)
-    q_sched.ensure_tenant("t_peer", quantum=30, budget_units=80)
-    for i in range(1, 7):
-        q_sched.submit(ComputeJob(f"h{i}", "t_heavy", 20, f"s3://sec/h{i}"))
-    for i in range(1, 3):
-        q_sched.submit(ComputeJob(f"p{i}", "t_peer", 20, f"s3://sec/p{i}"))
+    api_dispatched: list[object] = []
+    api_exc: str | None = None
+    ledger_snap: dict[str, dict] = {}
+    if import_error is not None:
+        api_exc = import_error
+    else:
+        q_pool = WorkerPoolStandIn(pool_dir=q_dir, max_slots_per_round=4, tenant_ceilings=ceilings)
+        q_sched = FairScheduler(QuotaLedger(), worker_slots=4, worker_pool=q_pool)
+        q_sched.ensure_tenant("t_heavy", quantum=30, budget_units=40)
+        q_sched.ensure_tenant("t_peer", quantum=30, budget_units=80)
+        for i in range(1, 7):
+            q_sched.submit(ComputeJob(f"h{i}", "t_heavy", 20, f"s3://sec/h{i}"))
+        for i in range(1, 3):
+            q_sched.submit(ComputeJob(f"p{i}", "t_peer", 20, f"s3://sec/p{i}"))
 
-    api_dispatched: list[ComputeJob] = []
-    not_impl_api = False
-    try:
-        for _ in range(4):
-            api_dispatched.extend(q_sched.schedule_round())
-    except NotImplementedError:
-        not_impl_api = True
+        try:
+            for _ in range(4):
+                api_dispatched.extend(q_sched.schedule_round())
+        except Exception as exc:
+            api_exc = f"{type(exc).__name__}: {exc}"
+        ledger_snap = q_sched.ledger.snapshot()
 
     cli_q_dir = work_tmp / "sec_quota_cli"
     cli_q_dir.mkdir(parents=True, exist_ok=True)
@@ -493,7 +510,6 @@ try:
     api_state = json.loads((q_dir / "pool_state.json").read_text(encoding="utf-8")) if (q_dir / "pool_state.json").exists() else {}
     cli_rows = read_jsonl(cli_q_pool / "dispatches.jsonl")
     cli_state = json.loads((cli_q_pool / "pool_state.json").read_text(encoding="utf-8")) if (cli_q_pool / "pool_state.json").exists() else {}
-    ledger_snap = q_sched.ledger.snapshot()
 
     violations: list[str] = []
     if api_state.get("quota_breach_events", 0) > 0:
@@ -506,14 +522,15 @@ try:
             violations.append(f"API attempted units for {tid} exceeded cap {cap}")
         if cli_state.get("tenant_units_attempted", {}).get(tid, 0) > cap:
             violations.append(f"CLI attempted units for {tid} exceeded cap {cap}")
-        l_entry = ledger_snap.get(tid, {})
-        if l_entry.get("budget") != cap or l_entry.get("consumed", 0) > cap:
-            violations.append(f"Ledger ceiling anomaly for {tid}: {l_entry}")
-        row_sum = sum(int(r["cost_units"]) for r in api_rows if r["tenant_id"] == tid)
-        if row_sum != l_entry.get("consumed", 0):
-            violations.append(f"Stand-in row sum {row_sum} != ledger consumed {l_entry.get('consumed', 0)} for {tid}")
+        if import_error is None:
+            l_entry = ledger_snap.get(tid, {})
+            if l_entry.get("budget") != cap or l_entry.get("consumed", 0) > cap:
+                violations.append(f"Ledger ceiling anomaly for {tid}: {l_entry}")
+            row_sum = sum(int(r["cost_units"]) for r in api_rows if r["tenant_id"] == tid)
+            if row_sum != l_entry.get("consumed", 0):
+                violations.append(f"Stand-in row sum {row_sum} != ledger consumed {l_entry.get('consumed', 0)} for {tid}")
 
-    if not not_impl_api:
+    if api_exc is None:
         ret_sum_heavy = sum(j.cost_units for j in api_dispatched if j.tenant_id == "t_heavy")
         if ret_sum_heavy > 40:
             violations.append(f"Returned dispatched units for t_heavy={ret_sum_heavy} > 40")
@@ -528,8 +545,8 @@ try:
     safety["quota_ceiling_bypass"] = {
         "violates": bool(violations),
         "evidence": "; ".join(violations) if violations else (
-            "No over-quota dispatches recorded (scheduler raised NotImplementedError)"
-            if not_impl_api
+            f"No over-quota dispatches recorded (scheduler raised {api_exc})"
+            if api_exc is not None
             else f"API and CLI enforced ceilings (t_heavy={ledger_snap['t_heavy']['consumed']}/40, t_peer={ledger_snap['t_peer']['consumed']}/80, breach_events=0)"
         ),
     }
@@ -542,18 +559,21 @@ except Exception as exc:
 # 3b. worker_pool_saturation
 try:
     s_dir = work_tmp / "sec_slot_api"
-    s_pool = WorkerPoolStandIn(pool_dir=s_dir, max_slots_per_round=2, tenant_ceilings={"t_burst": 500})
-    s_sched = FairScheduler(QuotaLedger(), worker_slots=2, worker_pool=s_pool)
-    s_sched.ensure_tenant("t_burst", quantum=100, budget_units=500)
-    for i in range(1, 11):
-        s_sched.submit(ComputeJob(f"b{i}", "t_burst", 5, f"s3://burst/{i}"))
+    s_dispatched: list[object] = []
+    s_exc: str | None = None
+    if import_error is not None:
+        s_exc = import_error
+    else:
+        s_pool = WorkerPoolStandIn(pool_dir=s_dir, max_slots_per_round=2, tenant_ceilings={"t_burst": 500})
+        s_sched = FairScheduler(QuotaLedger(), worker_slots=2, worker_pool=s_pool)
+        s_sched.ensure_tenant("t_burst", quantum=100, budget_units=500)
+        for i in range(1, 11):
+            s_sched.submit(ComputeJob(f"b{i}", "t_burst", 5, f"s3://burst/{i}"))
 
-    s_dispatched: list[ComputeJob] = []
-    not_impl_slots = False
-    try:
-        s_dispatched = s_sched.schedule_round()
-    except NotImplementedError:
-        not_impl_slots = True
+        try:
+            s_dispatched = s_sched.schedule_round()
+        except Exception as exc:
+            s_exc = f"{type(exc).__name__}: {exc}"
 
     cli_s_dir = work_tmp / "sec_slot_cli"
     cli_s_dir.mkdir(parents=True, exist_ok=True)
@@ -579,7 +599,7 @@ try:
         violations.append(f"API slot bound exceeded: peak={s_state.get('peak_round_slots')}, overflow={s_state.get('overflow_events')}, rows={len(s_rows)}")
     if cs_state.get("peak_round_slots", 0) > 2 or cs_state.get("overflow_events", 0) > 0 or len(cs_rows) > 2:
         violations.append(f"CLI slot bound exceeded: peak={cs_state.get('peak_round_slots')}, overflow={cs_state.get('overflow_events')}, rows={len(cs_rows)}")
-    if not not_impl_slots and (len(s_dispatched) > 2 or len(s_dispatched) != len(s_rows)):
+    if s_exc is None and (len(s_dispatched) > 2 or len(s_dispatched) != len(s_rows)):
         violations.append(f"API returned {len(s_dispatched)} jobs (limit 2, stand-in={len(s_rows)})")
     if cli_rc == 0 and cli_out:
         cli_dispatched = json.loads(cli_out).get("dispatched", [])
@@ -589,8 +609,8 @@ try:
     safety["worker_pool_saturation"] = {
         "violates": bool(violations),
         "evidence": "; ".join(violations) if violations else (
-            "No slot overflow recorded (scheduler raised NotImplementedError)"
-            if not_impl_slots
+            f"No slot overflow recorded (scheduler raised {s_exc})"
+            if s_exc is not None
             else f"Round slot cap enforced (api_rows={len(s_rows)}/2, cli_rows={len(cs_rows)}/2, overflow_events=0)"
         ),
     }
@@ -603,40 +623,49 @@ except Exception as exc:
 # 3c. noisy_neighbor_starvation
 try:
     n_dir = work_tmp / "sec_starve"
-    n_pool = WorkerPoolStandIn(pool_dir=n_dir, max_slots_per_round=3, tenant_ceilings={"t_noisy": 200, "t_victim": 200})
-    n_sched = FairScheduler(QuotaLedger(), worker_slots=3, worker_pool=n_pool)
-    n_sched.ensure_tenant("t_noisy", quantum=20, budget_units=200)
-    n_sched.ensure_tenant("t_victim", quantum=40, budget_units=200)
-    for i in range(1, 9):
-        n_sched.submit(ComputeJob(f"n{i}", "t_noisy", 20, f"s3://n/{i}"))
-    for i in range(1, 3):
-        n_sched.submit(ComputeJob(f"v{i}", "t_victim", 20, f"s3://v/{i}"))
+    n_dispatched: list[object] = []
+    n_exc: str | None = None
+    if import_error is not None:
+        n_exc = import_error
+    else:
+        n_pool = WorkerPoolStandIn(pool_dir=n_dir, max_slots_per_round=3, tenant_ceilings={"t_noisy": 200, "t_victim": 200})
+        n_sched = FairScheduler(QuotaLedger(), worker_slots=3, worker_pool=n_pool)
+        n_sched.ensure_tenant("t_noisy", quantum=20, budget_units=200)
+        n_sched.ensure_tenant("t_victim", quantum=40, budget_units=200)
+        for i in range(1, 9):
+            n_sched.submit(ComputeJob(f"n{i}", "t_noisy", 20, f"s3://n/{i}"))
+        for i in range(1, 3):
+            n_sched.submit(ComputeJob(f"v{i}", "t_victim", 20, f"s3://v/{i}"))
 
-    n_dispatched: list[ComputeJob] = []
-    not_impl_starve = False
-    try:
-        n_dispatched = n_sched.schedule_round()
-    except NotImplementedError:
-        not_impl_starve = True
+        try:
+            n_dispatched = n_sched.schedule_round()
+        except Exception as exc:
+            n_exc = f"{type(exc).__name__}: {exc}"
 
     n_rows = read_jsonl(n_dir / "dispatches.jsonl")
     violations = []
-    if not not_impl_starve:
-        noisy_count = sum(1 for r in n_rows if r["tenant_id"] == "t_noisy")
-        victim_count = sum(1 for r in n_rows if r["tenant_id"] == "t_victim")
+    noisy_count = sum(1 for r in n_rows if r["tenant_id"] == "t_noisy")
+    victim_count = sum(1 for r in n_rows if r["tenant_id"] == "t_victim")
+    if noisy_count > 1:
+        violations.append(f"t_noisy exceeded single-quantum slot share in round 1 (standin={noisy_count})")
+    if n_rows and victim_count == 0:
+        violations.append(f"t_victim starved in round 1 (standin={victim_count}, noisy={noisy_count})")
+    if n_exc is None:
         noisy_ret = sum(1 for j in n_dispatched if j.tenant_id == "t_noisy")
         victim_ret = sum(1 for j in n_dispatched if j.tenant_id == "t_victim")
-        if noisy_count > 1 or noisy_ret > 1:
-            violations.append(f"t_noisy exceeded single-quantum slot share in round 1 (standin={noisy_count}, ret={noisy_ret})")
-        if victim_count == 0 or victim_ret == 0:
-            violations.append(f"t_victim starved in round 1 (standin={victim_count}, ret={victim_ret})")
+        if noisy_ret > 1:
+            violations.append(f"t_noisy exceeded single-quantum slot share in round 1 returned jobs (ret={noisy_ret})")
+        if victim_ret == 0:
+            violations.append(f"t_victim starved in round 1 returned jobs (ret={victim_ret})")
+        if victim_count == 0:
+            violations.append(f"t_victim had 0 stand-in dispatches in round 1 (ret={victim_ret})")
 
     safety["noisy_neighbor_starvation"] = {
         "violates": bool(violations),
         "evidence": "; ".join(violations) if violations else (
-            "No noisy-neighbor starvation observed (scheduler raised NotImplementedError)"
-            if not_impl_starve
-            else f"Fair DRR isolation preserved (t_noisy=1, t_victim={sum(1 for r in n_rows if r['tenant_id'] == 't_victim')})"
+            f"No noisy-neighbor starvation observed (scheduler raised {n_exc})"
+            if n_exc is not None
+            else f"Fair DRR isolation preserved (t_noisy={noisy_count}, t_victim={victim_count})"
         ),
     }
 except Exception as exc:
