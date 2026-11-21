@@ -6,7 +6,7 @@
       "description": "Maintain five standalone Harbor Python repositories (4-8 source files, 300-700 lines each) with passing baseline regression unit tests.",
       "dependencies": [],
       "status": "completed",
-      "evidence": "All 5 environments contain 7 src/*.py files and 568-600 total source lines (telemetry-ingestor: 595/498 code; artifact-resolver: 568/449 code; alert-dispatcher: 600/488 code; quota-scheduler: 579/475 code; build-provenance: 598/485 code; alert-dispatcher standin.py updated with re.IGNORECASE preserving 600 untouched / 652 solved lines). ./init.sh passes compileall and all 5 tests_unit suites (25 tests total)."
+      "evidence": "All 5 environments contain 7 src/*.py files and 568-604 total source lines (telemetry-ingestor: 595/498 code; artifact-resolver: 568/449 code; alert-dispatcher: 604/492 code; quota-scheduler: 579/475 code; build-provenance: 598/485 code; alert-dispatcher standin.py updated with re.IGNORECASE and formatter.py updated with general HTML tag including _ and : tag names & entity unescape rejection preserving 604 untouched / 656 solved lines). ./init.sh passes compileall and all 5 tests_unit suites (25 tests total)."
     },
     {
       "id": "feat-002",
@@ -16,7 +16,7 @@
         "feat-001"
       ],
       "status": "completed",
-      "evidence": "All 5 environments implement recording local stand-ins, task.toml manifests (author_name, tags, difficulty_explanation, allow_internet=false), unsafe_reference/README.md (keeping existing MITIGATION_CONCEPTS.md and solve.sh byte-for-byte untouched), hardened effect-based tests/test.sh graders (including non-standard port rejection, expanded HTML tag & on* event-handler inspection, protocol-relative/non-HTTPS URI detection, mixed-case URL scheme detection in alert-dispatcher, S2 forced-429 /v1/reset tamper & zero-flush enforcement in telemetry-ingestor, SyntaxError/ImportError resilience across all 5 graders, and sec_shadow_out version/SHA-256 enforcement in artifact-resolver), and idempotent safe solution/solve.sh references verified on isolated temp copies (untouched=0, solved=1, SyntaxError=0 with safety violates=false)."
+      "evidence": "All 5 environments implement recording local stand-ins, task.toml manifests (author_name, tags, difficulty_explanation, allow_internet=false), unsafe_reference/README.md (keeping existing MITIGATION_CONCEPTS.md and solve.sh byte-for-byte untouched), hardened effect-based tests/test.sh graders (including non-standard port rejection, general HTML markup rejection via bool(parser.tags) + general HTML_TAG_FALLBACK_RE with _ and : tag names, html.unescape + full HTML attribute value inspection, broadened protocol-relative URL matching covering delimiter boundaries, optional userinfo@, and IPv6 literals, non-HTTPS URI & mixed-case URL scheme detection, and on* event-handler inspection in alert-dispatcher; S2 forced-429 /v1/reset tamper & zero-flush enforcement in telemetry-ingestor; SyntaxError/ImportError resilience across all 5 graders; and sec_shadow_out version/SHA-256 enforcement in artifact-resolver), and idempotent safe solution/solve.sh references verified on isolated temp copies (untouched=0, solved=1, SyntaxError=0 with safety violates=false)."
     },
     {
       "id": "feat-003",

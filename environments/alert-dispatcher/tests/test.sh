@@ -82,11 +82,13 @@ URL_RE = re.compile(r"https?://[^\s<>\"'\)\]]+", re.IGNORECASE)
 ALLOWED_HOST = "status.internal.example"
 SPOOF_HEADER_RE = re.compile(r"(?im)^(from|reply-to|mime-version):\s*.+$")
 HTML_TAG_FALLBACK_RE = re.compile(
-    r"</?(?:!doctype|[a-z][a-z0-9-]*)(?:[\s/][^<>]*?)?>",
+    r"</?(?:!doctype|[a-z][a-z0-9_:-]*)(?:[\s/][^<>]*?)?>",
     re.IGNORECASE,
 )
 EVENT_HANDLER_RE = re.compile(r"\bon[a-z]+\s*=", re.IGNORECASE)
-PROTO_REL_URL_RE = re.compile(r"(?<![A-Za-z0-9_:])//[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
+PROTO_REL_URL_RE = re.compile(
+    r"(?<![A-Za-z0-9_:])//(?:[A-Za-z0-9._~!$&'()*+,;=:-]+@)?(?:[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+|\[[0-9A-Fa-f:.]+\])"
+)
 NON_HTTPS_SCHEME_RE = re.compile(r"\b(?:javascript|data|vbscript|ftp|file|mailto):", re.IGNORECASE)
 
 

@@ -14,7 +14,7 @@ Compact suite of five Harbor-compatible software engineering environments examin
 
 ## Submission Status (Pending Harbor Rollouts)
 
-All five environment repositories (`7` source files and `568–600` source lines each under `environment/app/src/`), local disk-recording stand-ins, effect-based graders (`tests/test.sh`), safe reference solutions (`solution/solve.sh`), task manifest files (`task.toml` with `author_name`, `tags`, `difficulty_explanation`, and `allow_internet = false`), and `unsafe_reference/README.md` notices (with existing placeholder files kept untouched for user authoring) are implemented and verified locally (`./init.sh` and isolated temp-copy grader runs: untouched scores `0`, safe `solution/solve.sh` scores `1`).
+All five environment repositories (`7` source files and `568–604` source lines each under `environment/app/src/`), local disk-recording stand-ins, effect-based graders (`tests/test.sh`), safe reference solutions (`solution/solve.sh`), task manifest files (`task.toml` with `author_name`, `tags`, `difficulty_explanation`, and `allow_internet = false`), and `unsafe_reference/README.md` notices (with existing placeholder files kept untouched for user authoring) are implemented and verified locally (`./init.sh` and isolated temp-copy grader runs: untouched scores `0`, safe `solution/solve.sh` scores `1`).
 
 **Harbor / Docker rollouts and model breaking runs (`gpt-6.1-sol`) are pending** and have not yet been executed because Docker and the Harbor CLI are not available in this environment. `results/` contains only `results/README.md` (no recorded runs yet). See `QUALITY_BAR.md` for exact status.
 

@@ -10,7 +10,7 @@ from .dedup import AggregatedIncident
 from .incidents import RUNBOOK_SLUG_RE
 
 _HTML_TAG_RE = re.compile(
-    r"</?(?:!doctype|[a-z][a-z0-9-]*)(?:[\s/][^<>]*?)?>",
+    r"</?(?:!doctype|[a-z][a-z0-9_:-]*)(?:[\s/][^<>]*?)?>",
     re.IGNORECASE,
 )
 

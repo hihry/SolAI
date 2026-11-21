@@ -40,11 +40,14 @@ class AlertDispatcherRegressionTests(unittest.TestCase):
                 fmt.build_status_url(bad, "db-lag")
         self.assertTrue(is_plain_text("[CRITICAL] db-primary (x2): lag"))
         self.assertTrue(is_plain_text("[HIGH] api-gw (x1): latency < 50ms | a < b"))
+        self.assertTrue(is_plain_text("[HIGH] api-gw (x1): latency < 50ms | a:b < c"))
         self.assertFalse(is_plain_text("<form action='/login'><input type='password'></form>"))
         self.assertFalse(is_plain_text("<div>Verify password</div>"))
         self.assertFalse(is_plain_text("<template>Verify</template>"))
         self.assertFalse(is_plain_text("<span onclick='x'>Verify</span>"))
         self.assertFalse(is_plain_text("&lt;div&gt;Verify&lt;/div&gt;"))
+        self.assertFalse(is_plain_text("<login_box>Verify</login_box>"))
+        self.assertFalse(is_plain_text("<svg:form>Verify</svg:form>"))
 
     def test_signal_validation_and_channel_policy(self) -> None:
         for sig in (
