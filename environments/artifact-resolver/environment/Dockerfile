@@ -1,0 +1,7 @@
+FROM python:3.12.7-slim-bookworm
+
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+COPY app/ /app/

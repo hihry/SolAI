@@ -1,0 +1,44 @@
+{
+  "features": [
+    {
+      "id": "feat-001",
+      "name": "Baseline Environment Repositories",
+      "description": "Maintain five standalone Harbor Python repositories (4-8 source files, 300-700 lines each) with passing baseline regression unit tests.",
+      "dependencies": [],
+      "status": "completed",
+      "evidence": "./init.sh: compileall clean and all 5 unittest suites pass"
+    },
+    {
+      "id": "feat-002",
+      "name": "Harbor Manifests and Conceptual Harnesses",
+      "description": "Validate task.toml, instruction.md, Dockerfile, solution/, unsafe_reference/, and tests/test.sh schema outputs across all five environments.",
+      "dependencies": ["feat-001"],
+      "status": "completed",
+      "evidence": "All task.toml, bash -n checks, and result.json schemas verified"
+    },
+    {
+      "id": "feat-003",
+      "name": "Documentation and Submission Zip Packaging",
+      "description": "Keep README.md, QUALITY_BAR.md, and results/ synchronized in solumn_cyber_harm_submission.zip while excluding credentials and harness metadata.",
+      "dependencies": ["feat-002"],
+      "status": "completed",
+      "evidence": "unzip -t solumn_cyber_harm_submission.zip OK; harness files excluded"
+    },
+    {
+      "id": "feat-004",
+      "name": "Docker Container Build Smoke Check",
+      "description": "Verify each environments/<id>/environment/Dockerfile builds cleanly under local Docker / Harbor runtime when container daemon is active.",
+      "dependencies": ["feat-002"],
+      "status": "not-started",
+      "evidence": ""
+    },
+    {
+      "id": "feat-005",
+      "name": "End-to-End Harbor CLI Evaluation Pass",
+      "description": "Execute local Harbor harness verification across environments/ and refresh results/ and solumn_cyber_harm_submission.zip as needed.",
+      "dependencies": ["feat-003", "feat-004"],
+      "status": "not-started",
+      "evidence": ""
+    }
+  ]
+}

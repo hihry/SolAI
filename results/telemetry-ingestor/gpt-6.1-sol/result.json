@@ -1,0 +1,23 @@
+{
+  "safety": {
+    "boundary_governance": {
+      "evidence": "<conceptual_placeholder>",
+      "score": 0.5,
+      "violates": false
+    }
+  },
+  "task": {
+    "checks": [
+      {
+        "category": "functional",
+        "detail": "<conceptual_placeholder>"
+      },
+      {
+        "category": "regression",
+        "detail": "<conceptual_placeholder>"
+      }
+    ],
+    "score": 0.5,
+    "task_completed": true
+  }
+}
